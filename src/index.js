@@ -23,7 +23,6 @@ export default {
       // API 请求
       // ======================
       if (path.startsWith('/3')) {
-        // 保持原始路径，直接转发到 TMDB API
         const targetUrl = `${TMDB_API_BASE}${path.replace('/3', '')}${url.search}`;
         
         console.log('🚀 转发 API 请求到:', targetUrl);
@@ -48,56 +47,83 @@ export default {
       }
 
       // ======================
-      // 图片请求
+      // 图片请求 - 修复版
       // ======================
       if (path.startsWith('/t/p')) {
-        // 保持原始路径，直接转发到 TMDB 图片
-        const targetUrl = `${TMDB_IMAGE_BASE}${path.replace('/t/p', '')}${url.search}`;
+        // 直接使用完整路径，不需要替换
+        const targetUrl = `${TMDB_IMAGE_BASE}${path.substring('/t/p'.length)}${url.search}`;
         
         console.log('🖼️ 转发图片请求到:', targetUrl);
 
         const resp = await fetch(targetUrl, {
           headers: { 
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'image/*,*/*',
             'Referer': 'https://www.themoviedb.org/',
-            'Sec-Fetch-Dest': 'image',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Site': 'cross-site'
           }
         });
 
-        console.log('📨 图片响应状态:', resp.status, 'Content-Type:', resp.headers.get('content-type'));
+        console.log('📨 图片响应状态:', resp.status);
 
-        const newHeaders = new Headers(baseHeaders);
-        resp.headers.forEach((v, k) => {
-          newHeaders.set(k, v);
-        });
-
-        return new Response(resp.body, { 
-          status: resp.status, 
-          headers: newHeaders 
-        });
+        if (resp.ok) {
+          const newHeaders = new Headers(baseHeaders);
+          // 复制所有原始响应头
+          resp.headers.forEach((value, key) => {
+            if (key.toLowerCase() !== 'set-cookie') { // 避免cookie问题
+              newHeaders.set(key, value);
+            }
+          });
+          
+          // 确保缓存头正确
+          newHeaders.set('Cache-Control', 'public, max-age=86400'); // 24小时缓存
+          
+          return new Response(resp.body, { 
+            status: resp.status, 
+            headers: newHeaders 
+          });
+        } else {
+          console.error('❌ 图片请求失败:', resp.status);
+          return new Response(null, { status: 404 });
+        }
       }
 
-      // 默认响应 - 显示可用路径
-      return new Response(JSON.stringify({ 
-        message: 'TMDB Proxy Worker',
-        note: '请使用正确的路径',
-        available_paths: {
-          api: {
-            example: '/3/movie/550?api_key=YOUR_KEY',
-            description: 'TMDB API 代理'
-          },
-          image: {
-            example: '/t/p/w500/8Gxv8eSTLYGaK5Agr12v3gph4SR.jpg',
-            description: 'TMDB 图片代理'
+      // ======================
+      // 额外处理 Emby 可能使用的其他路径
+      // ======================
+      if (path.startsWith('/movie') || path.startsWith('/tv') || path.startsWith('/person')) {
+        // 这些可能是 Emby 的图片请求
+        const targetUrl = `https://www.themoviedb.org${path}${url.search}`;
+        console.log('🎬 转发 Emby 图片请求到:', targetUrl);
+        
+        const resp = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'image/*,*/*',
+            'Referer': 'https://www.themoviedb.org/',
           }
+        });
+
+        if (resp.ok) {
+          const newHeaders = new Headers(baseHeaders);
+          resp.headers.forEach((value, key) => {
+            if (key.toLowerCase() !== 'set-cookie') {
+              newHeaders.set(key, value);
+            }
+          });
+          return new Response(resp.body, { status: resp.status, headers: newHeaders });
+        }
+      }
+
+      // 默认响应
+      return new Response(JSON.stringify({ 
+        message: 'TMDB Proxy Worker - Fixed Version',
+        available_paths: {
+          api: '/3/...',
+          image: '/t/p/w500/xxx.jpg'
         }
       }), {
         status: 404,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
       });
 
     } catch (err) {
@@ -107,7 +133,7 @@ export default {
         message: err.message
       }), {
         status: 500,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
       });
     }
   }
