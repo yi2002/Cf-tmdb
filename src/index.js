@@ -1,4 +1,4 @@
-const TMDB_API_BASE = 'https://api.themoviedb.org/3';
+const TMDB_API_BASE = 'https://api.themoviedb.org';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org';
 
 export default {
@@ -6,91 +6,85 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // 通用 CORS 头
     const baseHeaders = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
-      'Access-Control-Allow-Headers': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
+    // 处理 OPTIONS 预检
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: baseHeaders });
+      return new Response(null, { status: 200, headers: baseHeaders });
     }
 
     try {
-      // 根路径
-      if (path === '/') {
-        return new Response(JSON.stringify({
-          message: 'TMDB Proxy Worker',
-          endpoints: {
-            api: '/3/movie/550',
-            image: '/t/p/w500/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg'
-          }
-        }), {
-          headers: { ...baseHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // API 代理
+      // -------------------------------------------------------------------
+      // 📌 1. TMDb API 代理
+      // -------------------------------------------------------------------
       if (path.startsWith('/3/')) {
-        const targetUrl = `${TMDB_API_BASE}${path.substring(2)}${url.search}`;
-        
-        const resp = await fetch(targetUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
+        const apiKey = env.TMDB_API_KEY;
+        const headers = {};
 
-        return new Response(resp.body, {
-          status: resp.status,
-          headers: { 
-            ...baseHeaders,
-            'Content-Type': 'application/json; charset=utf-8'
-          }
-        });
-      }
-
-      // 图片代理 - 简化版本
-      if (path.startsWith('/t/p/')) {
-        const targetUrl = `${TMDB_IMAGE_BASE}${path}${url.search}`;
-        
-        const resp = await fetch(targetUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'image/*,*/*',
-            'Referer': 'https://www.themoviedb.org/',
-          }
-        });
-
-        if (resp.status === 200) {
-          const headers = new Headers(baseHeaders);
-          const contentType = resp.headers.get('content-type');
-          if (contentType) headers.set('Content-Type', contentType);
-          return new Response(resp.body, { status: 200, headers });
-        } else {
-          return new Response(JSON.stringify({
-            error: 'Image not found',
-            status: resp.status
-          }), {
-            status: resp.status,
-            headers: { ...baseHeaders, 'Content-Type': 'application/json' }
-          });
+        // Emby 会带 Authorization，不覆盖
+        const auth = request.headers.get("Authorization");
+        if (auth) {
+          headers["Authorization"] = auth;
+        } else if (apiKey) {
+          headers["Authorization"] = `Bearer ${apiKey}`;
         }
+
+        const target = TMDB_API_BASE + path + url.search;
+
+        const resp = await fetch(target, { headers });
+        const json = await resp.text();
+
+        return new Response(json, {
+          status: resp.status,
+          headers: {
+            ...baseHeaders,
+            "Content-Type": "application/json",
+          }
+        });
       }
 
-      // 404 for unknown paths
-      return new Response(JSON.stringify({ error: 'Not found' }), {
-        status: 404,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
-      });
+      // -------------------------------------------------------------------
+      // 📌 2. TMDb 图片代理（Emby 海报 / Fanart）
+      // -------------------------------------------------------------------
+      if (path.startsWith('/t/p/')) {
+        const target = TMDB_IMAGE_BASE + path + url.search;
+
+        // 图片必须加 UA + Referer 才不会变占位符
+        const imgResp = await fetch(target, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://www.themoviedb.org/",
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+          }
+        });
+
+        // 返回原始图片流，保持所有 header
+        return new Response(imgResp.body, {
+          status: imgResp.status,
+          headers: {
+            ...baseHeaders,
+            "Content-Type": imgResp.headers.get("Content-Type") ?? "image/jpeg",
+            "Cache-Control": imgResp.headers.get("Cache-Control") ?? "public, max-age=604800",
+            "ETag": imgResp.headers.get("ETag") ?? "",
+            "Last-Modified": imgResp.headers.get("Last-Modified") ?? "",
+            "Content-Length": imgResp.headers.get("Content-Length") ?? "",
+          }
+        });
+      }
+
+      // 其他路径
+      return new Response("Not found", { status: 404, headers: baseHeaders });
 
     } catch (err) {
-      return new Response(JSON.stringify({ 
-        error: 'Internal Server Error'
-      }), {
+      return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
-        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+        headers: { ...baseHeaders, "Content-Type": "application/json" }
       });
     }
-  }
-}
+  },
+};
