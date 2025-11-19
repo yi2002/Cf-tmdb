@@ -1,5 +1,5 @@
 const TMDB_API_BASE = 'https://api.themoviedb.org/3';
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org';
 
 const CHINA_CONFIG = {
   region: 'CN',
@@ -27,19 +27,23 @@ export default {
     try {
       // 特殊调试路径 - 显示图片测试结果
       if (path === '/debug-images') {
-        const testImage = '/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg'; // 肖申克的救赎海报
+        const testImage = '/t/p/w500/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg'; // 肖申克的救赎海报
         
         const testUrls = [
-          { name: '方式1: 标准路径', url: `${TMDB_IMAGE_BASE}/w500${testImage}` },
-          { name: '方式2: 直接路径', url: `${TMDB_IMAGE_BASE}${testImage}` },
-          { name: '方式3: 原始尺寸', url: `${TMDB_IMAGE_BASE}/original${testImage}` },
+          { name: '标准路径', url: `${TMDB_IMAGE_BASE}${testImage}` },
         ];
         
         let results = [];
         
         for (const test of testUrls) {
           try {
-            const resp = await fetch(test.url);
+            const resp = await fetch(test.url, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Referer': 'https://www.themoviedb.org/',
+                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+              }
+            });
             results.push({
               name: test.name,
               url: test.url,
@@ -142,103 +146,31 @@ export default {
         });
       }
 
-      // 图片请求处理 - 增强版，包含多种路径尝试
+      // 新的图片获取逻辑 - 替换原有部分
       if (path.startsWith('/t/p/')) {
-        const log = [];
-        
-        // 方式1: 标准路径 /t/p/w500/xxx.jpg -> https://image.tmdb.org/t/p/w500/xxx.jpg
-        const targetUrl1 = `${TMDB_IMAGE_BASE}${path.substring(4)}${url.search}`;
-        log.push(`尝试方式1: ${targetUrl1}`);
-        
-        let resp = await fetch(targetUrl1, {
+        const target = TMDB_IMAGE_BASE + path + url.search;
+
+        // 图片必须加 User-Agent 和 Referer 才能返回正确图片
+        const resp = await fetch(target, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'image/*,*/*',
-            'Accept-Language': 'zh-CN,zh;q=0.9',
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://www.themoviedb.org/',
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
           }
         });
 
-        if (resp.ok) {
-          log.push(`方式1成功: ${resp.status}`);
-          const headers = new Headers(baseHeaders);
-          const contentType = resp.headers.get('content-type');
-          if (contentType) headers.set('Content-Type', contentType);
-          headers.set('X-Debug-Log', log.join('; '));
-          return new Response(resp.body, { status: resp.status, headers });
-        }
-        
-        log.push(`方式1失败: ${resp.status}`);
-        
-        // 方式2: 直接路径 /t/p/xxx.jpg -> https://image.tmdb.org/t/p/w500/xxx.jpg
-        const filename = path.split('/').pop();
-        const targetUrl2 = `${TMDB_IMAGE_BASE}/w500/${filename}${url.search}`;
-        log.push(`尝试方式2: ${targetUrl2}`);
-        
-        resp = await fetch(targetUrl2, {
+        // 返回原始图片流
+        return new Response(resp.body, {
+          status: resp.status,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'image/*,*/*',
-            'Accept-Language': 'zh-CN,zh;q=0.9',
+            ...baseHeaders,
+            'Content-Type': resp.headers.get('Content-Type') ?? 'image/jpeg',
+            'Cache-Control': resp.headers.get('Cache-Control') ?? 'public, max-age=604800',
+            'ETag': resp.headers.get('ETag') ?? '',
+            'Last-Modified': resp.headers.get('Last-Modified') ?? '',
+            'Content-Length': resp.headers.get('Content-Length') ?? '',
           }
         });
-
-        if (resp.ok) {
-          log.push(`方式2成功: ${resp.status}`);
-          const headers = new Headers(baseHeaders);
-          const contentType = resp.headers.get('content-type');
-          if (contentType) headers.set('Content-Type', contentType);
-          headers.set('X-Debug-Log', log.join('; '));
-          return new Response(resp.body, { status: resp.status, headers });
-        }
-        
-        log.push(`方式2失败: ${resp.status}`);
-        
-        // 返回错误信息
-        const headers = new Headers(baseHeaders);
-        headers.set('Content-Type', 'application/json');
-        headers.set('X-Debug-Log', log.join('; '));
-        return new Response(JSON.stringify({
-          error: '图片获取失败',
-          attempts: log
-        }), { status: 404, headers });
-      }
-
-      // 处理其他可能的图片路径格式
-      if (path.match(/\.(jpg|jpeg|png|webp)$/i)) {
-        const filename = path.split('/').pop();
-        const log = [];
-        
-        // 方式3: 直接文件名 /xxx.jpg -> https://image.tmdb.org/t/p/w500/xxx.jpg
-        const targetUrl3 = `${TMDB_IMAGE_BASE}/w500/${filename}${url.search}`;
-        log.push(`尝试方式3: ${targetUrl3}`);
-        
-        let resp = await fetch(targetUrl3, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'image/*,*/*',
-            'Accept-Language': 'zh-CN,zh;q=0.9',
-          }
-        });
-
-        if (resp.ok) {
-          log.push(`方式3成功: ${resp.status}`);
-          const headers = new Headers(baseHeaders);
-          const contentType = resp.headers.get('content-type');
-          if (contentType) headers.set('Content-Type', contentType);
-          headers.set('X-Debug-Log', log.join('; '));
-          return new Response(resp.body, { status: resp.status, headers });
-        }
-        
-        log.push(`方式3失败: ${resp.status}`);
-        
-        // 返回错误信息
-        const headers = new Headers(baseHeaders);
-        headers.set('Content-Type', 'application/json');
-        headers.set('X-Debug-Log', log.join('; '));
-        return new Response(JSON.stringify({
-          error: '图片获取失败',
-          attempts: log
-        }), { status: 404, headers });
       }
 
       // 根路径显示调试链接
