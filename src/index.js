@@ -39,9 +39,13 @@ export default {
           try {
             const resp = await fetch(test.url, {
               headers: {
-                'User-Agent': 'Mozilla/5.0',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Referer': 'https://www.themoviedb.org/',
-                'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Sec-Fetch-Dest': 'image',
+                'Sec-Fetch-Mode': 'no-cors',
+                'Sec-Fetch-Site': 'cross-site'
               }
             });
             results.push({
@@ -146,31 +150,45 @@ export default {
         });
       }
 
-      // 新的图片获取逻辑 - 替换原有部分
+      // 图片请求处理 - 增强版
       if (path.startsWith('/t/p/')) {
         const target = TMDB_IMAGE_BASE + path + url.search;
 
-        // 图片必须加 User-Agent 和 Referer 才能返回正确图片
+        // 使用更完整的浏览器头信息
         const resp = await fetch(target, {
           headers: {
-            'User-Agent': 'Mozilla/5.0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Referer': 'https://www.themoviedb.org/',
-            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Sec-Fetch-Dest': 'image',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'cross-site'
           }
         });
 
-        // 返回原始图片流
-        return new Response(resp.body, {
-          status: resp.status,
-          headers: {
-            ...baseHeaders,
-            'Content-Type': resp.headers.get('Content-Type') ?? 'image/jpeg',
-            'Cache-Control': resp.headers.get('Cache-Control') ?? 'public, max-age=604800',
-            'ETag': resp.headers.get('ETag') ?? '',
-            'Last-Modified': resp.headers.get('Last-Modified') ?? '',
-            'Content-Length': resp.headers.get('Content-Length') ?? '',
-          }
-        });
+        if (resp.ok) {
+          // 返回原始图片流
+          return new Response(resp.body, {
+            status: resp.status,
+            headers: {
+              ...baseHeaders,
+              'Content-Type': resp.headers.get('Content-Type') || 'image/jpeg',
+              'Cache-Control': 'public, max-age=31536000', // 1年缓存
+              'Expires': new Date(Date.now() + 31536000000).toUTCString(),
+            }
+          });
+        } else {
+          // 如果图片获取失败，返回错误信息
+          return new Response(JSON.stringify({
+            error: '图片获取失败',
+            status: resp.status,
+            url: target
+          }), {
+            status: resp.status,
+            headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+          });
+        }
       }
 
       // 根路径显示调试链接
@@ -186,6 +204,7 @@ export default {
             <p><a href="/debug-images">测试图片路径</a></p>
             <p><a href="/location">查看地理位置</a></p>
             <p><a href="/3/movie/550">测试API</a></p>
+            <p><a href="/t/p/w500/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg">测试图片</a></p>
           </body>
           </html>
         `;
@@ -197,7 +216,10 @@ export default {
       return new Response(null, { status: 404 });
 
     } catch (err) {
-      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Internal Server Error',
+        message: err.message
+      }), {
         status: 500,
         headers: { ...baseHeaders, 'Content-Type': 'application/json' }
       });
