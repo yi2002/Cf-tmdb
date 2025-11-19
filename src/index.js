@@ -1,60 +1,69 @@
-const TMDB_BASE_URL = 'https://api.themoviedb.org';
-const CACHE_DURATION = 10 * 60 * 1000; // 可选：10 分钟缓存
-
-// 简单内存缓存
-const cache = new Map();
+const TMDB_API_BASE = 'https://api.themoviedb.org';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org';
 
 export default {
   async fetch(request, env) {
     const headers = {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
-    if (request.method === 'OPTIONS') return new Response(null, { status: 200, headers });
+    // 处理 OPTIONS 预检请求
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 200, headers });
+    }
 
     try {
-      const TMDB_API_KEY = env.TMDB_API_KEY;
-      if (!TMDB_API_KEY) {
-        return new Response(JSON.stringify({ error: 'TMDB_API_KEY not set' }), { status: 500, headers });
-      }
-
       const url = new URL(request.url);
-      const path = url.pathname + url.search;
-      const cacheKey = path;
-      const now = Date.now();
+      const path = url.pathname;
 
-      // 内存缓存命中
-      if (cache.has(cacheKey)) {
-        const item = cache.get(cacheKey);
-        if (now < item.expiry) {
-          return new Response(JSON.stringify(item.data), { status: 200, headers });
-        } else {
-          cache.delete(cacheKey);
+      // 处理 TMDb API 请求
+      if (path.startsWith('/3/')) {
+        const apiKey = env.TMDB_API_KEY;
+        const authHeader = request.headers.get('Authorization');
+        const reqHeaders = {};
+
+        if (authHeader) {
+          reqHeaders['Authorization'] = authHeader;
+        } else if (apiKey) {
+          reqHeaders['Authorization'] = `Bearer ${apiKey}`;
         }
+
+        const tmdbUrl = TMDB_API_BASE + path + url.search;
+        const resp = await fetch(tmdbUrl, { headers: reqHeaders });
+        const data = await resp.json();
+
+        return new Response(JSON.stringify(data), {
+          status: resp.status,
+          headers,
+        });
       }
 
-      // 构建请求头
-      const authHeader = request.headers.get('Authorization');
-      const reqHeaders = {};
-      if (authHeader) {
-        reqHeaders['Authorization'] = authHeader; // 透传
-      } else {
-        reqHeaders['Authorization'] = `Bearer ${TMDB_API_KEY}`; // 使用 V4 Token
+      // 处理 TMDb 图片请求
+      if (path.startsWith('/t/p/')) {
+        const tmdbUrl = TMDB_IMAGE_BASE + path + url.search;
+        const resp = await fetch(tmdbUrl);
+        const arrayBuffer = await resp.arrayBuffer();
+
+        return new Response(arrayBuffer, {
+          status: resp.status,
+          headers: {
+            ...headers,
+            'Content-Type': resp.headers.get('Content-Type') || 'image/jpeg',
+            'Cache-Control': 'max-age=86400',
+          },
+        });
       }
 
-      const response = await fetch(TMDB_BASE_URL + path, { headers: reqHeaders });
-      const data = await response.json();
-
-      // 内存缓存成功响应
-      if (response.status === 200) {
-        cache.set(cacheKey, { data, expiry: now + CACHE_DURATION });
-      }
-
-      return new Response(JSON.stringify(data), { status: response.status, headers });
+      // 非法路径返回 404
+      return new Response('Not found', { status: 404, headers });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });
+      console.error('TMDb Worker error:', err);
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        headers,
+      });
     }
-  }
+  },
 };
