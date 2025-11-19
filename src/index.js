@@ -1,5 +1,6 @@
 const TMDB_API_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
+const MY_PROXY_BASE = 'https://cf.6080808.xyz';
 
 export default {
   async fetch(request, env) {
@@ -30,36 +31,52 @@ export default {
         if (resp.ok) {
           const data = await resp.json();
           
-          // 重写所有图片URL到我们的代理
-          const rewriteImageUrls = (obj) => {
-            if (obj && typeof obj === 'object') {
-              for (let key in obj) {
-                if (typeof obj[key] === 'string' && obj[key].includes('image.tmdb.org')) {
-                  obj[key] = obj[key].replace('https://image.tmdb.org/t/p/', 'https://cf.6080808.xyz/t/p/');
-                } else if (typeof obj[key] === 'object') {
-                  rewriteImageUrls(obj[key]);
-                }
+          // 重写所有图片路径到我们的代理
+          const rewriteImages = (obj) => {
+            if (!obj) return;
+            
+            if (obj.backdrop_path) {
+              obj.backdrop_path = `${MY_PROXY_BASE}/t/p${obj.backdrop_path}`;
+            }
+            if (obj.poster_path) {
+              obj.poster_path = `${MY_PROXY_BASE}/t/p${obj.poster_path}`;
+            }
+            if (obj.profile_path) {
+              obj.profile_path = `${MY_PROXY_BASE}/t/p${obj.profile_path}`;
+            }
+            if (obj.logo_path) {
+              obj.logo_path = `${MY_PROXY_BASE}/t/p${obj.logo_path}`;
+            }
+            if (obj.still_path) {
+              obj.still_path = `${MY_PROXY_BASE}/t/p${obj.still_path}`;
+            }
+            
+            // 处理嵌套对象
+            for (let key in obj) {
+              if (obj[key] && typeof obj[key] === 'object') {
+                rewriteImages(obj[key]);
               }
+            }
+            
+            // 处理数组
+            if (Array.isArray(obj)) {
+              obj.forEach(item => rewriteImages(item));
             }
           };
           
-          rewriteImageUrls(data);
+          rewriteImages(data);
           
           return new Response(JSON.stringify(data), {
             headers: { 
               ...baseHeaders,
-              'Content-Type': 'application/json; charset=utf-8',
-              'Cache-Control': 'public, max-age=300'
+              'Content-Type': 'application/json; charset=utf-8'
             }
           });
         }
 
         return new Response(resp.body, {
           status: resp.status,
-          headers: { 
-            ...baseHeaders,
-            'Content-Type': 'application/json; charset=utf-8'
-          }
+          headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         });
       }
 
@@ -77,7 +94,6 @@ export default {
           const headers = new Headers(baseHeaders);
           const contentType = resp.headers.get('content-type');
           if (contentType) headers.set('Content-Type', contentType);
-          headers.set('Cache-Control', 'public, max-age=2592000');
           return new Response(resp.body, { status: resp.status, headers });
         }
         
@@ -87,9 +103,7 @@ export default {
       return new Response(null, { status: 404 });
 
     } catch (err) {
-      return new Response(JSON.stringify({ 
-        error: 'Internal Server Error'
-      }), {
+      return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
         status: 500,
         headers: { ...baseHeaders, 'Content-Type': 'application/json' }
       });
