@@ -29,17 +29,20 @@ export default {
           });
         }
 
+        // 删除客户端传的 api_key 参数
+        const targetUrlObj = new URL(TMDB_API_BASE + path + url.search);
+        targetUrlObj.searchParams.delete('api_key');
+        const targetUrl = targetUrlObj.toString();
+
         const headers = {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         };
 
-        const targetUrl = TMDB_API_BASE + path + url.search;
         const resp = await fetch(targetUrl, { headers });
-        const body = await resp.arrayBuffer();
 
-        return new Response(body, {
+        return new Response(resp.body, {
           status: resp.status,
           headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         });
@@ -65,6 +68,7 @@ export default {
       });
 
     } catch (err) {
+      console.error(err);
       return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
         headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
