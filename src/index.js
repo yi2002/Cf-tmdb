@@ -20,7 +20,7 @@ export default {
       // ======================
       // API 请求 /3/
       // ======================
-      if (url.hostname === 'tmdbapi.6080808.xyz' && path.startsWith('/3/')) {
+      if (url.hostname === 'cf.6080808.xyz' && path.startsWith('/3/')) {
         const apiKey = env.TMDB_API_KEY;
         if (!apiKey) {
           return new Response(JSON.stringify({ status_code: 7, status_message: 'Invalid API key' }), {
@@ -29,7 +29,7 @@ export default {
           });
         }
 
-        // 删除客户端传的 api_key 参数
+        // 删除客户端传的 api_key 参数，强制用你的 API Key
         const targetUrlObj = new URL(TMDB_API_BASE + path + url.search);
         targetUrlObj.searchParams.delete('api_key');
         const targetUrl = targetUrlObj.toString();
@@ -51,7 +51,7 @@ export default {
       // ======================
       // 图片请求 /t/p/
       // ======================
-      if (url.hostname === 'tmdbimg.6080808.xyz' && path.startsWith('/t/p/')) {
+      if (url.hostname === 'cf.6080808.xyz' && path.startsWith('/t/p/')) {
         const targetUrl = TMDB_IMAGE_BASE + path + url.search;
         const resp = await fetch(targetUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.themoviedb.org/' }
@@ -63,7 +63,7 @@ export default {
         return new Response(resp.body, { status: resp.status, headers: newHeaders });
       }
 
-      return new Response(JSON.stringify({ message: 'TMDB Proxy Worker B方案' }), {
+      return new Response(JSON.stringify({ message: 'TMDB Proxy Worker cf.6080808.xyz' }), {
         headers: { ...baseHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       });
 
