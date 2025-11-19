@@ -1,5 +1,143 @@
 const TMDB_API_BASE = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_BASEconst TMDB_API_BASE = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org';
+
+// 多图片源配置
+const IMAGE_SOURCES = [
+  { name: 'tmdb-primary', base: 'https://image.tmdb.org/t/p', priority: 1 },
+  { name: 'tmdb-backup1', base: 'https://www.themoviedb.org/t/p', priority: 2 },
+  { name: 'tmdb-backup2', base: 'https://media.themoviedb.org/t/p', priority: 3 },
+];
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    const baseHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS, HEAD',
+      'Access-Control-Allow-Headers': '*',
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: baseHeaders });
+    }
+
+    try {
+      console.log('收到请求:', path, url.search);
+
+      // API 请求 - 强制使用您的 API Key
+      if (path.startsWith('/3/')) {
+        let targetUrl = `${TMDB_API_BASE}${path.substring(2)}`;
+        const searchParams = new URLSearchParams(url.search);
+        
+        // 🔥 关键修复：强制覆盖 API Key
+        if (env.TMDB_API_KEY) {
+          searchParams.set('api_key', env.TMDB_API_KEY);
+          console.log('使用 API Key:', env.TMDB_API_KEY.substring(0, 8) + '...');
+        } else {
+          return new Response(JSON.stringify({
+            error: 'TMDB_API_KEY 环境变量未设置',
+            solution: '请在 Cloudflare Workers 环境变量中设置您的 TMDB API Key'
+          }), {
+            status: 500,
+            headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+        
+        // 添加中国区域优化
+        if (!searchParams.has('region')) {
+          searchParams.set('region', 'CN');
+        }
+        if (!searchParams.has('language') && !path.includes('/configuration')) {
+          searchParams.set('language', 'zh-CN');
+        }
+        
+        targetUrl = `${targetUrl}?${searchParams.toString()}`;
+        console.log('转发 API 到:', targetUrl);
+        
+        const resp = await fetch(targetUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        console.log('API 响应状态:', resp.status);
+        return new Response(resp.body, {
+          status: resp.status,
+          headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 多源图片代理
+      if (path.startsWith('/t/p/')) {
+        const imagePath = path.substring('/t/p/'.length);
+        console.log('图片请求:', imagePath);
+        
+        // 尝试所有图片源
+        for (const source of IMAGE_SOURCES.sort((a, b) => a.priority - b.priority)) {
+          try {
+            const targetUrl = `${source.base}/${imagePath}`;
+            console.log('尝试图片源:', source.name, targetUrl);
+            
+            const resp = await fetch(targetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/*,*/*',
+                'Referer': 'https://www.themoviedb.org/',
+              }
+            });
+
+            console.log('图片源响应:', source.name, resp.status);
+            
+            if (resp.status === 200) {
+              const headers = new Headers(baseHeaders);
+              headers.set('Content-Type', resp.headers.get('content-type') || 'image/jpeg');
+              headers.set('X-Image-Source', source.name);
+              headers.set('Cache-Control', 'public, max-age=2592000'); // 30天缓存
+              return new Response(resp.body, { status: 200, headers });
+            }
+          } catch (err) {
+            console.log('图片源失败:', source.name, err.message);
+            continue;
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          error: '图片在所有源中都不可用',
+          tried_sources: IMAGE_SOURCES.map(s => s.name)
+        }), {
+          status: 404,
+          headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // 根路径显示状态
+      return new Response(JSON.stringify({ 
+        message: 'TMDB Proxy - 强制 API Key 版本',
+        status: env.TMDB_API_KEY ? 'API Key 已配置' : 'API Key 未配置',
+        usage: {
+          api: '/3/movie/278',
+          image: '/t/p/w500/kBf3g9crrADGMc2AMAMlLBgSm2h.jpg'
+        }
+      }), {
+        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+      });
+
+    } catch (err) {
+      console.error('Worker 错误:', err);
+      return new Response(JSON.stringify({ 
+        error: 'Internal Server Error',
+        message: err.message
+      }), {
+        status: 500,
+        headers: { ...baseHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+  }
+} = 'https://image.tmdb.org';
 
 const CHINA_CONFIG = {
   region: 'CN',
