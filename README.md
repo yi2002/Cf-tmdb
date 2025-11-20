@@ -19,7 +19,7 @@
    - [点击前往创建 API Token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token)  
    - 部署按钮会直接跳转到 Cloudflare Workers 部署页面  
 
-4. **Emby / Jellyfin 等媒体服务器配置**  
+4. **Emby 媒体服务器配置**  
    - 安装带有 **替代 TMDB 配置** 的 **神医助手插件**  
    - [点击前往神医助手 Wiki 页面](https://github.com/sjtuross/StrmAssistant/wiki/%E6%9B%BF%E4%BB%A3-TMDB-%E9%85%8D%E7%BD%AE)  
    - 插件可简化 TMDB API 和图片代理配置  
