@@ -1,6 +1,6 @@
 # Cf-tmdb
 
-一个基于 **Cloudflare Workers** 的轻量级 TMDB 代理，适合国内环境访问 TMDB，让媒体服务器能正常抓取图片与元数据。
+一个基于 **Cloudflare Workers** 的轻量级 TMDB 代理，适合国内环境访问 TMDB，让emby不用机场节点也能正常刮削图片与元数据。
 
 ## 提前准备
 
