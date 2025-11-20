@@ -59,16 +59,7 @@
 -  1.托管域名到couldflare
 -  2.点击workers 和 pages → 创建应用程序 → 从 Hello World 开始 开始使用 → Worker名称 随意填 → 部署 → 找到 编辑代码 → 把下面的代码 复制替换掉 workers.js的代码 → 右上角 → 部署，等屏幕下方出现绿色就部署成功 → 接下来请看 本页使用说明的 → 3 → 4 → 5
 
-# TMDB Proxy
-
-A Cloudflare Worker that proxies requests to TMDB API and image services.
-
-## Usage
-
 ```javascript:worker.js
-/**
- * Cloudflare Workers - TMDB Proxy
- */
 
 const API_ORIGIN = 'https://api.themoviedb.org';
 const IMAGE_ORIGIN = 'https://image.tmdb.org';
