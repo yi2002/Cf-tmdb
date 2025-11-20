@@ -2,6 +2,28 @@
 
 一个基于 **Cloudflare Workers** 的轻量级 TMDB 代理，适合国内环境访问 TMDB，让媒体服务器能正常抓取图片与元数据。
 
+## 提前准备
+
+在开始部署 Cf-tmdb 之前，请先准备以下内容：
+
+1. **域名托管到 Cloudflare**  
+   - 需要有一个域名，并将其 DNS 托管到 Cloudflare  
+   - [点击前往 Cloudflare 官网](https://www.cloudflare.com/)  
+
+2. **申请 TMDB API Key**  
+   - 用于访问 TMDB API  
+   - [点击前往 TMDB 官方网站](https://www.themoviedb.org/settings/api)  
+
+3. **一键自动部署 Workers**  
+   - 部署前需创建 **CLOUDFLARE_API_TOKEN**  
+   - [点击前往创建 API Token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token)  
+   - 部署按钮会直接跳转到 Cloudflare Workers 部署页面  
+
+4. **Emby / Jellyfin 等媒体服务器配置**  
+   - 安装带有 **替代 TMDB 配置** 的 **神医助手插件**  
+   - [点击前往神医助手 Wiki 页面](https://github.com/sjtuross/StrmAssistant/wiki/%E6%9B%BF%E4%BB%A3-TMDB-%E9%85%8D%E7%BD%AE)  
+   - 插件可简化 TMDB API 和图片代理配置  
+
 ---
 
 ## 功能特点
