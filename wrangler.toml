@@ -1,5 +1,5 @@
 name = "cf-tmdb"
 compatibility_date = "2025-11-19"
 
-# 默认 Worker 入口文件（API Worker）
+
 main = "src/index.js"
