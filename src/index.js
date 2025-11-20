@@ -1,9 +1,11 @@
 /**
- * Cloudflare Workers - TMDB 
+ * Cloudflare Workers - TMDB Proxy
+ */
 
 const API_ORIGIN = 'https://api.themoviedb.org';
 const IMAGE_ORIGIN = 'https://image.tmdb.org';
 
+// 使用 export default 正确导出
 export default {
   async fetch(request) {
     const url = new URL(request.url);
