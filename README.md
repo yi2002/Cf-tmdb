@@ -42,10 +42,6 @@
 
 ## 快速部署
 
-1. **Fork 仓库**  
-
-[复制本仓库（Fork）](https://github.com/HQSxcj/Cf-tmdb/fork)  
-
 #  一键部署 Cf-tmdb 部署 API 代理
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/HQSxcj/Cf-tmdb.git)
