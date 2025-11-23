@@ -74,7 +74,7 @@ Emby 神医助手配置
 #### 所以可以利用 couldflare 的高速节点先一步比图像任务 返回文字json信息，有json里的字符串 图片抓取就又快又稳。
 
 
-# 因为只用单个 workers 无法平衡 emby的多线程高速刮削频率和couldlare workers 限制多线程长时间并发还有短期请求过快限制，下面这个单workers适合 50T 以内的 emby 库刮削。
+###  因为只用单个 workers 无法平衡 emby的多线程高速刮削频率和couldlare workers 限制多线程长时间并发还有短期请求过快限制，下面这个单workers适合 50T 以内的 emby 库刮削。
 ## 手动部署单个 workers 方式，属于低阶的刮削玩法了。
 ```javascript:worker.js
 
