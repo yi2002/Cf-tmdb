@@ -1,3 +1,4 @@
-name = "cf-tmdb"
+# wrangler.toml
+name = 'tmdb'
 main = "src/index.js"
 compatibility_date = "2025-11-19"
